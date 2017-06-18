@@ -24,8 +24,8 @@ import org.jsoup.select.Elements;
 import dbmock.DBMock;
 
 public class Connector {
-	private static final String ARTICLES_URL = "https://jsonplaceholder.typicode.com/posts/1";
-	private static final String AUTHORS_URL = "https://jsonplaceholder.typicode.com/posts/1";
+	private static final String ARTICLES_URL = "localhost:5000";
+	private static final String AUTHORS_URL = "localhost:5000";
 	private static final boolean MOCK = true;
 
 	static int day = 12;
@@ -197,7 +197,7 @@ public class Connector {
 		} else
 			try {
 				HttpPost request = new HttpPost(ARTICLES_URL);
-				StringEntity params = new StringEntity(artic.toString());
+				StringEntity params = new StringEntity("{\"put\":\""+artic.toString()+"\"}");
 				request.addHeader("content-type", "application/x-www-form-urlencoded");
 				request.setEntity(params);
 				HttpResponse response = httpClient.execute(request);
@@ -213,7 +213,7 @@ public class Connector {
 		} else
 			try {
 				HttpPost request = new HttpPost(AUTHORS_URL);
-				StringEntity params = new StringEntity(auth.toString());
+				StringEntity params = new StringEntity("{\"put\":\""+auth.toString()+"\"}");
 				request.addHeader("content-type", "application/x-www-form-urlencoded");
 				request.setEntity(params);
 				HttpResponse response = httpClient.execute(request);

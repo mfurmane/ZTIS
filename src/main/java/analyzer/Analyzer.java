@@ -18,8 +18,8 @@ import kotaku.Connector;
 
 public class Analyzer {
 
-	private static final String ARTICLES_URL = "https://jsonplaceholder.typicode.com/posts/1";
-	private static final String AUTHORS_URL = "https://jsonplaceholder.typicode.com/posts/1";
+	private static final String ARTICLES_URL = "localhost:5000";
+	private static final String AUTHORS_URL = "localhost:5000";
 	public static int lastAuth = 0;
 	public static int lastArt = 0;
 	public static List<String> authorsJSONs = new Vector<>();
