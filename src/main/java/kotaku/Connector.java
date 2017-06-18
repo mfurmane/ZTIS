@@ -9,14 +9,26 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.json.JSONObject;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import dbmock.DBMock;
+
 public class Connector {
-	static int day = 11;
+	private static final String ARTICLES_URL = "https://jsonplaceholder.typicode.com/posts/1";
+	private static final String AUTHORS_URL = "https://jsonplaceholder.typicode.com/posts/1";
+	private static final boolean MOCK = true;
+
+	static int day = 12;
 
 	static int i = 0;
 	static List<String> titles = new Vector<String>();
@@ -30,8 +42,9 @@ public class Connector {
 		if (dto.getUrl() != "") {
 			connect = Jsoup.connect(dto.getUrl());
 			Document document = connect.get();
-			for (Element elem: document.select("div[style]")) {
-				if (elem.attr("style").startsWith("background-image: url(")) dto.setPhoto(elem.attr("style").replace("background-image: url(", "").replace(")", ""));
+			for (Element elem : document.select("div[style]")) {
+				if (elem.attr("style").startsWith("background-image: url("))
+					dto.setPhoto(elem.attr("style").replace("background-image: url(", "").replace(")", ""));
 			}
 		}
 
@@ -55,7 +68,8 @@ public class Connector {
 		Date date = new Date();
 		if (input.split(" ").length == 1)
 			return (date.getMonth() + 1) + "/" + day + "/" + (date.getYear() - 100) + " " + input;
-		return input.replace("Yesterday", (date.getMonth() + 1) + "/" + (day - 1) + "/" + (date.getYear() - 100));
+		return input.replace("Yesterday", (date.getMonth() + 1) + "/" + (day - 1) + "/" + (date.getYear() - 100))
+				.replace("Today", (date.getMonth() + 1) + "/" + (day) + "/" + (date.getYear() - 100));
 
 	}
 
@@ -68,89 +82,63 @@ public class Connector {
 		String toRemove2 = "ShareTweet About Blog Need Help? Content Guide Kotaku Store Redirecting to the Kotaku store in Disclaimer: You are leaving a Gizmodo Media Group, LLC website and going to a third party site, which is subject to its own privacy policy and terms of use. Continue Permissions Privacy Terms of Use Advertising Jobs RSS ©2017 Gizmodo Media Group Kinja is in read-only mode. We are working to restore service.";
 		String[] cleanedText = document.body().text().replace(toRemove, "").split("permalink ");
 
-		String author = cleanedText[0].split("\\d")[0].replace("Yesterday", "").replace("Today", "").trim();
-		String date = prepareDate(cleanedText[0].replaceAll(author, "").split(" Filed to:")[0].trim());
-		String filledTo = cleanedText[0].split(" Filed to:")[1]
-				.replace("Edit Promote Share to Kinja Toggle Conversation tools Go to", "").trim();
-		String content = cleanedText[1].replace(toRemove2, "").split(author)[0];
+		String author = cleanedText[0].split("\\d")[0].replace("Yesterday", "").replace("Today", "")
+				.replace("Monday", "").replace("Tuesday", "").replace("Wednesday", "").replace("Thursday", "")
+				.replace("Friday", "").replace("Saturday", "").replace("Sunday", "").trim();
+		if (!author.startsWith("kotaku")) {
+			// System.out.println(
+			// "####################################" + author +
+			// "########################################");
+			// System.out.println("#" + cleanedText[0]);
+			// System.out.println("#" + cleanedText[0].replaceAll(author, ""));
+			// System.out.println("#" + cleanedText[0].replaceAll(author,
+			// "").split(" Filed to:")[0].trim());
 
-		ArticleDTO dto = new ArticleDTO();
-		dto.setContent(content);
-		dto.setDate(date);
-		dto.setTitle(document.title());
-		dto.setFilledTo(filledTo);
+			String date = prepareDate(cleanedText[0].replaceAll(author, "").split(" Filed to:")[0].trim());
+			String filledTo = cleanedText[0].split(" Filed to:")[1]
+					.replace("Edit Promote Share to Kinja Toggle Conversation tools Go to", "").trim();
+			String content = cleanedText[1].replace(toRemove2, "").split(author)[0];
 
-		if (authors.containsKey(author))
-			dto.setAuthor(authors.get(author));
-		else {
-			String authorUrl = "";
-			for (Element elem : document.select("a[title]")) {
-				if (elem.attr("title").equals("Author Name"))
-					authorUrl = elem.attr("href");
-			}
-			if (usedUrls.contains(authorUrl)) {
-				for (String string : authors.keySet()) {
-					if (authors.get(string).getUrl().equals(authorUrl))
-						dto.setAuthor(authors.get(string));
+			ArticleDTO dto = new ArticleDTO();
+			dto.setContent(content);
+			dto.setDate(date);
+			dto.setTitle(document.title());
+			dto.setFilledTo(filledTo);
+
+			if (authors.containsKey(author))
+				dto.setAuthor(authors.get(author));
+			else {
+				String authorUrl = "";
+				for (Element elem : document.select("a[title]")) {
+					if (elem.attr("title").equals("Author Name"))
+						authorUrl = elem.attr("href");
 				}
-			} else {
-				AuthorDTO authorDTO = new AuthorDTO();
-				authorDTO.setName(author);
-				authorDTO.setUrl(authorUrl);
-				dto.setAuthor(authorDTO);
-				authors.put(author, authorDTO);
-				usedUrls.add(authorUrl);
+				if (usedUrls.contains(authorUrl)) {
+					for (String string : authors.keySet()) {
+						if (authors.get(string).getUrl().equals(authorUrl))
+							dto.setAuthor(authors.get(string));
+					}
+				} else {
+					AuthorDTO authorDTO = new AuthorDTO();
+					authorDTO.setName(author);
+					authorDTO.setUrl(authorUrl);
+					dto.setAuthor(authorDTO);
+					authors.put(author, authorDTO);
+					usedUrls.add(authorUrl);
+				}
 			}
+
+			// System.out.println(document.title());
+			dto.setData(document);
+			articles.put(document.title(), dto);
 		}
-		
-//		System.out.println(document.title());
-		dto.setData(document);
 
-		// System.out.println(author);
-		// System.out.println("\n"+document.title());
-		// System.out.println(date);
-		// System.out.println(document.baseUri());
-		// System.out.println(author+ " - " + cleanedText[0].replaceAll(author,
-		// "") );
-		// System.out.println(cleanedText[0].replace(" Edit Promote Share to
-		// Kinja Toggle Conversation tools Go to", "").split("\\d")[0]);
-		// System.out.println(cleanedText[1]);
-
-		// String string = document.body().text().replace(toRemove,
-		// "").replace((document.title() + " "), "")
-		// .split("You are logged out.")[0];
-		// if (string.contains("  ·  ")) {
-		//// ArticleDTO dto = new ArticleDTO();
-		// String[] parts = string.split("\\s*·\\s*");
-		// String tmpDate = parts[0];
-		//// String author;
-		// String article;
-		// if (tmpDate.endsWith(" "))
-		// tmpDate = tmpDate.substring(0, tmpDate.length() - 1);
-		//
-		// dto.setTitle(document.title());
-		// dto.setDate(tmpDate.substring(tmpDate.length() - 19));
-		// article = parts[parts.length - 1];
-		// author = article.split(" 0 ")[0].split("@")[0].substring(1);
-		//
-		//
-		// article = article.replaceAll(author + " 0 ", "");
-		// dto.setContent(article);
-		// dto.setData(document);
-		//
-		//
-		// articles.put(document.title(), dto);
-		// }
-		// // }
-		//
-		// // System.out.println("...");
-		// titles.add(document.title());
 	}
 
 	public static void main(String[] args) throws IOException {
 		Connection connect = Jsoup.connect("http://kotaku.com/");
 		// Connection connect2 = Jsoup.connect("http://kotaku.com/");
-		Document document = connect.get();
+		Document document = connect.timeout(10000).get();
 		Elements links = document.select("a");
 		Set<String> hrefs = new HashSet<String>();
 
@@ -165,30 +153,74 @@ public class Connector {
 		}
 
 		for (String string : authors.keySet()) {
-			System.out.println(string + " - " + authors.get(string).getUrl());
-			exploreAuthor(string);
+			if (!string.contains("kotaku")) {
+				// System.out.println(string + " - " +
+				// authors.get(string).getUrl());
+
+				exploreAuthor(string);
+			}
 		}
 
-		// Collections.sort(titles);
-		//
-		// // for (String string : titles) {
-		// // DestructoidDTO d = articles.get(string);
-		// // if (d != null) {
-		// // System.out.println(d.getAuthor().getName() + " - " +
-		// d.getTitle());
-		// // System.out.println(d.getDate());
-		// // System.out.println(d.getContent());
-		// // System.out.println(d.getData().size() + " - " + d.getData());
-		// // System.out.println();
-		// // }
-		// // }
-		//
-		// for (String name : authors.keySet()) {
-		// exploreAuthor(name);
-		// }
-		//
-		// // System.out.println(document);
+		for (String string : articles.keySet()) {
+			// System.out.println(articles.get(string).getAuthor().getName() + "
+			// - " + articles.get(string).getTitle());
+			// System.out.println(articles.get(string).getContent());
+			// System.out.println(articles.get(string).getDate());
+			// System.out.println();
+		}
 
+		HttpClient httpClient = HttpClientBuilder.create().build();
+
+		for (String string : authors.keySet()) {
+			if (!string.contains("kotaku")) {
+				exploreAuthor(string);
+				JSONObject author = new JSONObject(authors.get(string));
+
+				saveAuthor(httpClient, author.toString());
+
+//				System.out.println(author.toString());
+			}
+		}
+		for (String string : articles.keySet()) {
+			JSONObject artic = new JSONObject(articles.get(string));
+
+			saveArticle(httpClient, artic.toString());
+
+//			System.out.println(artic);
+		}
+
+	}
+
+	public static void saveArticle(HttpClient httpClient, String artic) {
+		if (MOCK) {
+			DBMock.art.add(artic);
+		} else
+			try {
+				HttpPost request = new HttpPost(ARTICLES_URL);
+				StringEntity params = new StringEntity(artic.toString());
+				request.addHeader("content-type", "application/x-www-form-urlencoded");
+				request.setEntity(params);
+				HttpResponse response = httpClient.execute(request);
+				// handle response here...
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+	}
+
+	public static void saveAuthor(HttpClient httpClient, String auth) {
+		if (MOCK) {
+			DBMock.auth.add(auth);
+		} else
+			try {
+				HttpPost request = new HttpPost(AUTHORS_URL);
+				StringEntity params = new StringEntity(auth.toString());
+				request.addHeader("content-type", "application/x-www-form-urlencoded");
+				request.setEntity(params);
+				HttpResponse response = httpClient.execute(request);
+				// handle response here...
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 	}
 
 }
